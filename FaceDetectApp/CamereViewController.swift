@@ -13,7 +13,6 @@ class CameraViewController: UIViewController {
     private let videoDataOutput = AVCaptureVideoDataOutput()
     private let captureSession = AVCaptureSession()
     private lazy var previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
-    private var isFaceDetect = false
     private let photoOutput = AVCapturePhotoOutput()
     private let semicircleLayer = CAShapeLayer()
     private let freeformLayer = CAShapeLayer()
@@ -142,7 +141,6 @@ class CameraViewController: UIViewController {
                     self.handleFaceDetectionResults(observedFace: firstFace)
                 } else {
                     self.changeFillBorderColor(color: .red, title: "The user's face is not visible or please move away from the camera")
-                    self.isFaceDetect = false
                 }
             }
         }
@@ -159,22 +157,8 @@ class CameraViewController: UIViewController {
 
         if faceWidth > farThreshold {
             changeFillBorderColor(color: .green, title: "The user face is at a normal distance")
-            isFaceDetect = true
-            if isFaceDetect {
-                capturePhoto()
-            }
         } else {
-            isFaceDetect = false
             changeFillBorderColor(color: .yellow, title: "Please maintain a normal distance and move closer to the camera")
-        }
-    }
-
-    private func capturePhoto() {
-        let photoSettings = AVCapturePhotoSettings()
-        photoSettings.flashMode = .off
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-            self.photoOutput.capturePhoto(with: photoSettings, delegate: self)
         }
     }
 }
@@ -184,34 +168,4 @@ extension CameraViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard let frame = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         detectFace(image: frame)
     }
-}
-
-extension CameraViewController: AVCapturePhotoCaptureDelegate {
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-        guard error == nil else { return }
-        guard let imageData = photo.fileDataRepresentation() else { return }
-        guard let image = UIImage(data: imageData) else { return }
-        saveImageToStorage(image: image)
-    }
-    
-    private func saveImageToStorage(image: UIImage) {
-        do {
-            if let imageData = image.jpegData(compressionQuality: 1.0) {
-                UserDefaults.standard.set(imageData, forKey: "latestSavedImage")
-                DispatchQueue.main.async {
-                    self.captureSession.stopRunning()
-                    self.navigationController?.popToRootViewController(animated: true)
-                }
-            } else {
-                throw ImageError.imageDataConversionFailed
-            }
-        } catch {
-            print("Error saving image to UserDefaults: \(error)")
-        }
-    }
-
-    enum ImageError: Error {
-        case imageDataConversionFailed
-    }
-
 }
